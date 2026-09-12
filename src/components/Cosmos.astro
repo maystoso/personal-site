@@ -1,0 +1,204 @@
+---
+// Slow, dark, spatial backdrop. Three layers:
+//   1. drifting nebula clouds that breathe and shift
+//   2. parallax dust at three depths
+//   3. a vignette that closes the edges in
+// Everything is low-contrast on purpose — it should register as
+// atmosphere, not decoration.
+---
+<canvas id="cosmos" aria-hidden="true"></canvas>
+
+<style>
+  #cosmos {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+</style>
+
+<script>
+  const canvas = document.getElementById('cosmos') as HTMLCanvasElement | null;
+
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    type Cloud = {
+      x: number; y: number; r: number;
+      hue: string;
+      driftX: number; driftY: number;
+      phase: number; pulse: number;
+      alpha: number;
+    };
+
+    type Mote = {
+      x: number; y: number;
+      r: number;
+      depth: number;      // 0 far, 1 near
+      speed: number;
+      phase: number;
+      twinkle: number;
+    };
+
+    let clouds: Cloud[] = [];
+    let motes: Mote[] = [];
+    let W = 0;
+    let H = 0;
+    let raf = 0;
+    let t = 0;
+
+    // Deep violets and indigos — cold, not colourful.
+    const PALETTE = ['#2a1b4d', '#171a44', '#3a1840', '#101733', '#241046'];
+
+    function build() {
+      if (!canvas) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const area = W * H;
+
+      clouds = Array.from({ length: 6 }, (_, i) => ({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.min(W, H) * (0.35 + Math.random() * 0.45),
+        hue: PALETTE[i % PALETTE.length],
+        driftX: (Math.random() - 0.5) * 0.08,
+        driftY: (Math.random() - 0.5) * 0.05,
+        phase: Math.random() * Math.PI * 2,
+        pulse: 0.00018 + Math.random() * 0.00022,
+        alpha: 0.16 + Math.random() * 0.12,
+      }));
+
+      motes = Array.from({ length: Math.round(area / 9000) }, () => {
+        const depth = Math.random();
+        return {
+          x: Math.random() * W,
+          y: Math.random() * H,
+          r: 0.3 + depth * 1.5,
+          depth,
+          speed: 0.02 + depth * 0.16,
+          phase: Math.random() * Math.PI * 2,
+          twinkle: 0.0006 + Math.random() * 0.0016,
+        };
+      });
+    }
+
+    function paintClouds() {
+      if (!ctx) return;
+      // 'lighter' lets overlapping clouds accumulate instead of covering
+      // each other, which is what gives the depth.
+      ctx.globalCompositeOperation = 'lighter';
+
+      for (const c of clouds) {
+        c.x += c.driftX;
+        c.y += c.driftY;
+
+        // wrap around generously so edges never pop
+        if (c.x < -c.r) c.x = W + c.r;
+        if (c.x > W + c.r) c.x = -c.r;
+        if (c.y < -c.r) c.y = H + c.r;
+        if (c.y > H + c.r) c.y = -c.r;
+
+        const breathe = 0.75 + 0.25 * Math.sin(c.phase + t * c.pulse);
+        const r = c.r * breathe;
+
+        const grad = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, r);
+        grad.addColorStop(0, c.hue);
+        grad.addColorStop(0.55, c.hue + '55');
+        grad.addColorStop(1, c.hue + '00');
+
+        ctx.globalAlpha = c.alpha * breathe;
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    }
+
+    function paintMotes(moving: boolean) {
+      if (!ctx) return;
+      for (const m of motes) {
+        if (moving) {
+          // Nearer motes drift faster — cheap parallax.
+          m.y -= m.speed;
+          m.x += m.speed * 0.22;
+          if (m.y < -4) { m.y = H + 4; m.x = Math.random() * W; }
+          if (m.x > W + 4) m.x = -4;
+        }
+
+        const tw = 0.35 + 0.65 * Math.abs(Math.sin(m.phase + t * m.twinkle));
+        ctx.globalAlpha = tw * (0.12 + m.depth * 0.5);
+        ctx.fillStyle = m.depth > 0.75 ? '#d8cef5' : '#8f86b8';
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function paintVignette() {
+      if (!ctx) return;
+      const grad = ctx.createRadialGradient(
+        W / 2, H / 2, Math.min(W, H) * 0.25,
+        W / 2, H / 2, Math.max(W, H) * 0.78
+      );
+      grad.addColorStop(0, 'rgba(6,5,10,0)');
+      grad.addColorStop(1, 'rgba(6,5,10,0.92)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    function frame(now: number) {
+      if (!ctx) return;
+      t = now;
+      ctx.clearRect(0, 0, W, H);
+      paintClouds();
+      paintMotes(true);
+      paintVignette();
+      raf = requestAnimationFrame(frame);
+    }
+
+    function still() {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+      paintClouds();
+      paintMotes(false);
+      paintVignette();
+    }
+
+    build();
+    if (reduced) still();
+    else raf = requestAnimationFrame(frame);
+
+    let resizeTimer: number;
+    window.addEventListener('resize', () => {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        cancelAnimationFrame(raf);
+        build();
+        if (reduced) still();
+        else raf = requestAnimationFrame(frame);
+      }, 160);
+    });
+
+    // Stop burning frames when the tab isn't visible.
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      } else if (!raf && !reduced) {
+        raf = requestAnimationFrame(frame);
+      }
+    });
+  }
+</script>

@@ -1,0 +1,98 @@
+---
+// Drifting sparkle field — echoes the star motifs in your illustrations.
+// Pure canvas, no dependencies. Sits behind all content.
+---
+<canvas id="sparkle-field" aria-hidden="true"></canvas>
+
+<style>
+  #sparkle-field {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+</style>
+
+<script>
+  const canvas = document.getElementById('sparkle-field') as HTMLCanvasElement | null;
+
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    type Spark = { x: number; y: number; r: number; drift: number; phase: number; speed: number };
+    let sparks: Spark[] = [];
+    let raf = 0;
+
+    function build() {
+      if (!canvas) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Density scales with viewport so phones aren't overloaded.
+      const count = Math.round((window.innerWidth * window.innerHeight) / 22000);
+      sparks = Array.from({ length: count }, () => ({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        r: Math.random() * 1.4 + 0.4,
+        drift: Math.random() * 0.25 + 0.05,
+        phase: Math.random() * Math.PI * 2,
+        speed: Math.random() * 0.015 + 0.005,
+      }));
+    }
+
+    function draw(t: number) {
+      if (!ctx || !canvas) return;
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+      for (const s of sparks) {
+        s.y -= s.drift;
+        if (s.y < -5) s.y = window.innerHeight + 5;
+
+        const twinkle = 0.35 + 0.65 * Math.abs(Math.sin(s.phase + t * s.speed));
+        ctx.globalAlpha = twinkle * 0.4;
+        ctx.fillStyle = '#cfc4ef';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      raf = requestAnimationFrame(draw);
+    }
+
+    function drawStatic() {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      for (const s of sparks) {
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#cfc4ef';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    build();
+    if (reduced) {
+      drawStatic();
+    } else {
+      raf = requestAnimationFrame(draw);
+    }
+
+    let resizeTimer: number;
+    window.addEventListener('resize', () => {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        cancelAnimationFrame(raf);
+        build();
+        if (reduced) drawStatic();
+        else raf = requestAnimationFrame(draw);
+      }, 150);
+    });
+  }
+</script>

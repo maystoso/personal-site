@@ -1,0 +1,74 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+<Layout title="Contact — Myka Escaran" hideHeader>
+  <div class="wrap masthead">
+    <p class="eyebrow">Get in touch</p>
+    <h1>Contact</h1>
+    <p class="lede">
+      Open to internships, freelance illustration, and commissions. Email is
+      the fastest way to reach me.
+    </p>
+  </div>
+
+  <div class="wrap page-body">
+    <div class="links">
+      <a class="btn" href="mailto:drewmyka@gmail.com">Email</a>
+      <a class="btn" href="https://github.com/maystoso" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a class="btn" href="https://www.instagram.com/mynuetto/" target="_blank" rel="noopener noreferrer">Instagram</a>
+      <button class="btn discord-btn" id="discord-btn" type="button">Discord</button>
+      <p class="discord-help" id="discord-help" aria-live="polite" hidden>
+        Copied <strong>kimoria</strong> to your clipboard. Paste it in Discord to send a friend request.
+      </p>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem 1rem;
+    align-items: center;
+  }
+
+  .discord-btn {
+    cursor: pointer;
+  }
+
+  .discord-help {
+    flex-basis: 100%;
+    color: var(--ink-dim);
+    font-size: 0.9rem;
+    max-width: 42ch;
+  }
+
+  .discord-help strong {
+    color: var(--accent);
+    font-weight: 500;
+  }
+</style>
+
+<script>
+  const discordBtn = document.getElementById('discord-btn');
+  const discordHelp = document.getElementById('discord-help');
+
+  discordBtn?.addEventListener('click', async () => {
+    let copied = false;
+
+    try {
+      await navigator.clipboard.writeText('kimoria');
+      copied = true;
+    } catch {
+      // Clipboard access can be unavailable on some browsers; the prompt
+      // still provides the username for visitors to copy manually.
+    }
+
+    if (discordHelp) {
+      discordHelp.innerHTML = copied
+        ? 'Copied <strong>kimoria</strong> to your clipboard. Paste it in Discord to send a friend request.'
+        : 'Copy <strong>kimoria</strong> and paste it in Discord to send a friend request.';
+      discordHelp.hidden = false;
+    }
+  });
+</script>

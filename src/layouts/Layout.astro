@@ -1,0 +1,64 @@
+---
+import '../styles/global.css';
+import Header from '../components/Header.astro';
+import Cosmos from '../components/Cosmos.astro';
+import BackShard from '../components/BackShard.astro';
+
+interface Props {
+  title?: string;
+  description?: string;
+  // Full-bleed pages (the mirror) drop the footer so the scene can own
+  // the viewport without a scrollbar hanging off the bottom.
+  hideFooter?: boolean;
+  // The mirror owns the whole viewport — no chrome over the scene.
+  hideHeader?: boolean;
+}
+
+// The mirror is home — no point offering a way back to it from itself.
+const isHome = (Astro.url.pathname.replace(/\/$/, '') || '/') === '/';
+
+const {
+  title = 'Myka Escaran — Developer & Illustrator',
+  description = 'Portfolio and resume of Myka Escaran, computer science student and illustrator.',
+  hideFooter = false,
+  hideHeader = false,
+} = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+  </head>
+  <body>
+    <Cosmos />
+    <div class={isHome ? 'page-shell' : 'page-shell arrive'}>
+      {!hideHeader && <Header />}
+      <main>
+        <slot />
+      </main>
+      {!hideFooter && (
+        <footer class="wrap site-footer">
+          <p>© {new Date().getFullYear()} Myka Escaran</p>
+        </footer>
+      )}
+      {!isHome && <BackShard />}
+    </div>
+  </body>
+</html>
+
+<script>
+  // Once the arrival animation is finished, remove its transform wrapper.
+  // This keeps fixed overlays such as the art lightbox anchored to the
+  // browser viewport instead of the page content.
+  const arrivingShell = document.querySelector('.page-shell.arrive');
+  arrivingShell?.addEventListener('animationend', () => {
+    arrivingShell.classList.remove('arrive');
+  }, { once: true });
+</script>

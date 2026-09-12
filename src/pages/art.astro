@@ -1,0 +1,68 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { Image } from 'astro:assets';
+import ProjectCard from '../components/ProjectCard.astro';
+import { projects } from '../data/projects';
+import Lightbox from '../components/Lightbox.astro';
+import portfolio from '../assets/art/portfolio.png';
+---
+<Layout title="Art — Myka Escaran" hideHeader>
+  <div class="wrap masthead">
+    <p class="eyebrow">Illustration &amp; character design</p>
+    <h1>Art</h1>
+  </div>
+
+  <div class="banner">
+    <Image
+      src={portfolio}
+      alt="Portfolio collage: character paintings, chibi drawings, and a framed celestial illustration"
+      widths={[900, 1600, 2400, 3200]}
+      sizes="100vw"
+      loading="eager"
+      fetchpriority="high"
+    />
+  </div>
+
+  <!-- Single row: grid-auto-flow column puts every card side by side,
+       and 1fr columns split the width evenly however many there are. -->
+  <div class="gallery">
+    {projects.map((project) => <ProjectCard project={project} />)}
+  </div>
+  <Lightbox />
+</Layout>
+
+<style>
+  .banner {
+    width: 100%;
+    margin-top: clamp(2rem, 5vw, 3rem);
+  }
+
+  .banner :global(img) {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .gallery {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: clamp(0.8rem, 1.5vw, 1.5rem);
+    align-items: start;
+    padding-inline: var(--gutter);
+    padding-block: clamp(2.5rem, 6vw, 4rem);
+  }
+
+  /* Below tablet, cards would be unreadably narrow — let the row scroll
+     sideways instead of shrinking further. */
+  @media (max-width: 700px) {
+    .gallery {
+      grid-auto-columns: minmax(220px, 60vw);
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .gallery > * { scroll-snap-align: start; }
+  }
+</style>

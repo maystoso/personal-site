@@ -1,0 +1,467 @@
+---
+// Scene logic only. Every tunable value lives in src/data/mirrorConfig.ts
+// so this file can be replaced without losing your settings.
+import Layout from '../layouts/Layout.astro';
+import { shards, ui } from '../data/mirrorConfig';
+---
+<Layout title="Myka Escaran">
+  <div class="scene" id="scene">
+    <canvas id="mirror-canvas"></canvas>
+
+    <!-- Labels are HTML tracking the 3D shards, not 3D text.
+         Much sharper, and screen readers can actually use them. -->
+    <div class="labels" id="labels" style={`--label-size:${ui.labelSize}`}>
+      {shards.map((s, i) => (
+        <a class="label" href={s.href} data-i={i}>{s.label}</a>
+      ))}
+    </div>
+
+    <p class="hint" id="hint">Move your cursor to search the dark</p>
+    <a class="bail" href="/resume">Skip to the site</a>
+
+    <noscript>
+      <nav class="fallback">
+        {shards.map((s) => <a href={s.href}>{s.label}</a>)}
+      </nav>
+    </noscript>
+  </div>
+</Layout>
+
+<style>
+  .scene {
+    position: relative;
+    height: calc(100vh - 78px);
+    min-height: 520px;
+    overflow: hidden;
+    background: #06050a;
+    cursor: crosshair;
+  }
+
+  #mirror-canvas { display: block; width: 100%; height: 100%; }
+
+  .labels { position: absolute; inset: 0; pointer-events: none; }
+
+  .label {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: var(--label-size, 1.05rem);
+    color: var(--ink);
+    letter-spacing: 0.01em;
+    text-shadow: 0 0 18px rgba(6, 5, 10, 0.98), 0 0 6px rgba(6, 5, 10, 0.9);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease, color 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .label:focus-visible { color: var(--accent-rose); opacity: 1 !important; }
+
+  .hint {
+    position: absolute;
+    bottom: 2.2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--font-display);
+    font-style: italic;
+    color: var(--muted);
+    font-size: 0.98rem;
+    transition: opacity 0.6s ease;
+  }
+
+  .bail {
+    position: absolute;
+    bottom: 1rem;
+    right: 1.4rem;
+    font-size: 0.78rem;
+    color: var(--muted);
+    border-bottom: 1px solid transparent;
+  }
+
+  .bail:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .fallback {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1.4rem;
+  }
+
+  @media (hover: none) {
+    .label { opacity: 1; }
+    .hint { display: none; }
+  }
+</style>
+
+<script>
+  import * as THREE from 'three';
+  import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+  import {
+    debug, shards, model, glass, torch as torchCfg, glow as glowCfg,
+    shardStyle, debris as debrisCfg, ui,
+  } from '../data/mirrorConfig';
+
+  const host = document.getElementById('scene');
+  const canvas = document.getElementById('mirror-canvas');
+  const hint = document.getElementById('hint');
+  const labelEls = Array.from(document.querySelectorAll('.label'));
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (host && canvas) {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(host.clientWidth, host.clientHeight, false);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(
+      45, host.clientWidth / host.clientHeight, 0.1, 100
+    );
+    camera.position.set(0, 0, 6);
+
+    scene.add(new THREE.AmbientLight(0xffffff, debug ? 1.6 : 0.05));
+
+    const torch = new THREE.PointLight(
+      torchCfg.color, torchCfg.power, torchCfg.distance, torchCfg.decay
+    );
+    torch.position.set(0, 0, 2.6);
+    scene.add(torch);
+
+    // ---- backlight ----------------------------------------------------
+    function makeGlowTexture(hex) {
+      const S = 512;
+      const c = document.createElement('canvas');
+      c.width = c.height = S;
+      const g = c.getContext('2d');
+      const grad = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+      grad.addColorStop(0.00, hex);
+      grad.addColorStop(0.18, hex);
+      grad.addColorStop(0.45, hex + '66');
+      grad.addColorStop(0.75, hex + '18');
+      grad.addColorStop(1.00, hex + '00');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, S, S);
+      return new THREE.CanvasTexture(c);
+    }
+
+    const glow = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({
+        map: makeGlowTexture(glowCfg.color),
+        transparent: true,
+        opacity: glowCfg.strength,
+        depthWrite: false,
+      })
+    );
+    glow.position.set(0, 0, glowCfg.z);
+    scene.add(glow);
+
+    if (debug) {
+      scene.add(new THREE.Mesh(
+        new THREE.BoxGeometry(0.4, 0.4, 0.4),
+        new THREE.MeshBasicMaterial({ color: 0xff3366, wireframe: true })
+      ));
+    }
+
+    // ---- shards -------------------------------------------------------
+    // Irregular flat slivers — uneven angles and radii so no two match
+    // and none reads as a tidy polygon.
+    function makeShardGeometry(sizeMin, sizeMax) {
+      const nRange = shardStyle.pointsMax - shardStyle.pointsMin;
+      const n = shardStyle.pointsMin + Math.floor(Math.random() * (nRange + 1));
+
+      // Sorted random angles guarantee the outline never crosses itself,
+      // which lets the radii vary as wildly as we like.
+      const angles = Array.from(
+        { length: n },
+        () => Math.random() * Math.PI * 2
+      ).sort((a, b) => a - b);
+
+      const stretch =
+        shardStyle.stretchMin +
+        Math.random() * (shardStyle.stretchMax - shardStyle.stretchMin);
+      const span = sizeMax - sizeMin;
+
+      const pts = angles.map((a) => {
+        let r = sizeMin + Math.random() * span;
+        // Yank some points hard toward the centre to cut notches and spikes.
+        r *= 1 - Math.random() * shardStyle.jaggedness;
+        return new THREE.Vector2(Math.cos(a) * r, Math.sin(a) * r * stretch);
+      });
+
+      const geo = new THREE.ExtrudeGeometry(new THREE.Shape(pts), {
+        depth: 0.010,
+        bevelEnabled: false,
+      });
+      geo.center();
+      return geo;
+    }
+
+    // Translucent pane + bright catching edges. The edges are what make
+    // it read as glass in a dark scene.
+    function makeGlassMesh(geo, opacity) {
+      const mat = new THREE.MeshStandardMaterial({
+        color: shardStyle.color,
+        roughness: shardStyle.roughness,
+        metalness: shardStyle.metalness,
+        emissive: shardStyle.emissive,
+        emissiveIntensity: 0,
+        transparent: true,
+        opacity,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+
+      if (shardStyle.edgeOpacity > 0) {
+        const edges = new THREE.LineSegments(
+          new THREE.EdgesGeometry(geo, 1),
+          new THREE.LineBasicMaterial({
+            color: shardStyle.edgeColor,
+            transparent: true,
+            opacity: shardStyle.edgeOpacity,
+          })
+        );
+        mesh.add(edges);      // child, so it inherits the shard's transform
+      }
+
+      return mesh;
+    }
+
+    const shardMeshes = shards.map((s) => {
+      const k = s.size ?? 1;
+      const mesh = makeGlassMesh(
+        makeShardGeometry(shardStyle.sizeMin * k, shardStyle.sizeMax * k),
+        shardStyle.opacity
+      );
+      mesh.position.set(s.pos[0], s.pos[1], 0.5); // real spot set after load
+      // Face the camera with a slight tilt, free spin in plane.
+      mesh.rotation.set(
+        (Math.random() - 0.5) * 0.45,
+        (Math.random() - 0.5) * 0.45,
+        Math.random() * Math.PI * 2
+      );
+      mesh.userData.norm = s.pos;
+      mesh.userData.href = s.href;
+      mesh.userData.tiltY = mesh.rotation.y;
+      mesh.userData.phase = Math.random() * Math.PI * 2;
+      mesh.userData.hueOffset = Math.random();
+      scene.add(mesh);
+      return mesh;
+    });
+
+    const debrisMeshes = [];
+
+    // ---- model --------------------------------------------------------
+    new GLTFLoader().load(
+      model.path,
+      (gltf) => {
+        const obj = gltf.scene;
+
+        const box = new THREE.Box3().setFromObject(obj);
+        const size = box.getSize(new THREE.Vector3());
+        obj.position.sub(box.getCenter(new THREE.Vector3()));
+
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        obj.scale.setScalar(model.fit / maxDim);
+
+        const d2r = Math.PI / 180;
+        obj.rotation.set(model.rotX * d2r, model.rotY * d2r, model.rotZ * d2r);
+
+        scene.add(obj);
+
+        // Measure as it now sits, then place shards inside the glass.
+        const fitted = new THREE.Box3().setFromObject(obj);
+        const fsize = fitted.getSize(new THREE.Vector3());
+        const halfW = (fsize.x / 2) * glass.x;
+        const halfH = (fsize.y / 2) * glass.y;
+        const frontZ = fitted.max.z + 0.12;
+
+        shardMeshes.forEach((mesh) => {
+          const n = mesh.userData.norm || [0, 0];
+          mesh.position.set(n[0] * halfW, n[1] * halfH, frontZ);
+        });
+
+        const glowSize = Math.max(fsize.x, fsize.y) * glowCfg.size;
+        glow.scale.set(glowSize, glowSize, 1);
+
+        // Scatter tiny fragments so the four nav shards don't look placed.
+        // Not clickable, not in shardMeshes — purely scenery.
+        for (let i = 0; i < debrisCfg.count; i++) {
+          const bit = makeGlassMesh(
+            makeShardGeometry(debrisCfg.sizeMin, debrisCfg.sizeMax),
+            debrisCfg.baseOpacity
+          );
+          // Biased toward the centre so the edges stay sparse.
+          const t = Math.random() ** 0.7;
+          const ang = Math.random() * Math.PI * 2;
+          bit.position.set(
+            Math.cos(ang) * t * halfW * debrisCfg.spread,
+            Math.sin(ang) * t * halfH * debrisCfg.spread,
+            frontZ + (Math.random() - 0.5) * 0.25
+          );
+          bit.rotation.set(
+            (Math.random() - 0.5) * 0.6,
+            (Math.random() - 0.5) * 0.6,
+            Math.random() * Math.PI * 2
+          );
+          bit.material.emissiveIntensity = debrisCfg.baseGlow;
+          scene.add(bit);
+          debrisMeshes.push(bit);
+        }
+
+        // Void black: unlit, so no light ever touches it.
+        const voidBlack = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const needle = model.glassName.toLowerCase();
+        let meshCount = 0;
+        let blackened = 0;
+
+        obj.traverse((o) => {
+          if (!o.isMesh) return;
+          meshCount++;
+          const matName = Array.isArray(o.material)
+            ? o.material.map((m) => m.name).join(',')
+            : o.material?.name;
+          if (debug) console.log('[mirror] mesh:', o.name, '| material:', matName);
+
+          if (
+            model.silhouette ||
+            o.name.toLowerCase().includes(needle) ||
+            (matName || '').toLowerCase().includes(needle)
+          ) {
+            o.material = voidBlack;
+            blackened++;
+          }
+        });
+
+        console.log('[mirror] meshes:', meshCount, '| blackened:', blackened,
+          '| debris:', debrisMeshes.length);
+      },
+      undefined,
+      (err) => console.error('[mirror] FAILED to load', model.path, err)
+    );
+
+    // ---- interaction --------------------------------------------------
+    const pointer = new THREE.Vector2(-10, -10);
+    const raycaster = new THREE.Raycaster();
+    const projected = new THREE.Vector3();
+    let hovered = null;
+
+    host.addEventListener('pointermove', (e) => {
+      const r = host.getBoundingClientRect();
+      pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+      pointer.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+      if (hint) hint.style.opacity = '0';
+    });
+
+    host.addEventListener('click', () => {
+      if (hovered?.userData.href) window.location.href = hovered.userData.href;
+    });
+
+    function resize() {
+      renderer.setSize(host.clientWidth, host.clientHeight, false);
+      camera.aspect = host.clientWidth / host.clientHeight;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resize);
+
+    // ---- loop ---------------------------------------------------------
+    let clock = 0;
+
+    // Distance across the screen plane only. The torch sits well in front
+    // of the shards, so including z would put everything permanently
+    // out of range.
+    function flatDist(obj) {
+      const dx = obj.position.x - torch.position.x;
+      const dy = obj.position.y - torch.position.y;
+      return Math.hypot(dx, dy);
+    }
+
+    function tick() {
+      clock += 0.016;
+
+      torch.position.x = pointer.x * torchCfg.reachX;
+      torch.position.y = pointer.y * torchCfg.reachY;
+
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(shardMeshes, false);
+      hovered = hits.length ? hits[0].object : null;
+      host.style.cursor = hovered ? 'pointer' : 'crosshair';
+
+      shardMeshes.forEach((mesh, i) => {
+        // Rock rather than spin — a flat shard turning fully would
+        // vanish edge-on twice a rotation.
+        if (!reduced) {
+          mesh.rotation.y =
+            mesh.userData.tiltY +
+            Math.sin(clock * shardStyle.swaySpeed + mesh.userData.phase) *
+              shardStyle.swayAmount;
+        }
+
+        const isHovered = mesh === hovered;
+        const near = Math.max(0, 1 - flatDist(mesh) / shardStyle.torchReach);
+        const lit = near * shardStyle.nearGlow;
+        const target = isHovered
+          ? shardStyle.hoverGlow
+          : Math.max(shardStyle.baseGlow, lit);
+        mesh.material.emissiveIntensity +=
+          (target - mesh.material.emissiveIntensity) * (isHovered ? 0.25 : 0.12);
+
+        // Oil-slick shimmer, only while the cursor is on this shard.
+        if (shardStyle.iridescent && isHovered) {
+          mesh.userData.hueT =
+            (mesh.userData.hueT || 0) + 0.016 * shardStyle.hueSpeed;
+          mesh.material.emissive.setHSL(
+            (shardStyle.hueStart + (mesh.userData.hueT % 1) * shardStyle.hueSpan) % 1,
+            shardStyle.hueSaturation,
+            shardStyle.hueLightness
+          );
+        } else if (shardStyle.iridescent) {
+          // Back to the plain colour once the cursor leaves.
+          mesh.material.emissive.setHex(shardStyle.emissive);
+        }
+
+        const el = labelEls[i];
+        if (el) {
+          projected.copy(mesh.position).project(camera);
+          el.style.left = (projected.x * 0.5 + 0.5) * host.clientWidth + 'px';
+          el.style.top =
+            (-projected.y * 0.5 + 0.5) * host.clientHeight +
+            ui.labelOffsetY + 'px';
+          // Only on hover or keyboard focus.
+          el.style.opacity =
+            mesh === hovered || el === document.activeElement ? '1' : '0';
+        }
+      });
+
+      // Debris fades in only where the beam falls — opacity and glow
+      // both ride the same curve, so they're truly absent in the dark.
+      for (const bit of debrisMeshes) {
+        const n = debrisCfg.alwaysVisible
+          ? 1
+          : Math.max(0, 1 - flatDist(bit) / debrisCfg.torchReach);
+        const ramp = n * n;
+        bit.material.opacity =
+          debrisCfg.baseOpacity +
+          ramp * (debrisCfg.maxOpacity - debrisCfg.baseOpacity);
+        bit.material.emissiveIntensity =
+          debrisCfg.baseGlow + ramp * debrisCfg.torchGlow;
+        bit.visible = bit.material.opacity > 0.01;
+      }
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(tick);
+    }
+
+    resize();
+    tick();
+  }
+</script>

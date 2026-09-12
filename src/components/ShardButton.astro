@@ -1,0 +1,150 @@
+---
+// Inline shard-shaped link. Same morphing outline and black backlight as
+// the back shard, but sits in the flow of a page instead of pinned.
+interface Props {
+  href: string;
+  label: string;
+  download?: boolean;
+  width?: number;
+}
+
+const { href, label, download = false, width = 150 } = Astro.props;
+---
+<a
+  class="shard-btn"
+  href={href}
+  download={download ? '' : undefined}
+  style={`--w:${width}px`}
+>
+  <span class="pop">{label}</span>
+  <svg viewBox="0 0 120 46" aria-hidden="true">
+    <polygon
+      class="shard-btn-poly"
+      points="8,30 34,6 62,22 88,4 112,28 96,42 58,32 26,44"
+    />
+  </svg>
+</a>
+
+<style>
+  .shard-btn {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: var(--w, 150px);
+    text-decoration: none;
+    vertical-align: middle;
+  }
+
+  .shard-btn::before {
+    content: '';
+    position: absolute;
+    width: 110%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      rgba(0, 0, 0, 0.95) 0%,
+      rgba(0, 0, 0, 0.7) 38%,
+      rgba(0, 0, 0, 0) 72%
+    );
+    opacity: 0.85;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none;
+  }
+
+  .shard-btn:hover::before,
+  .shard-btn:focus-visible::before {
+    opacity: 1;
+    transform: scale(1.14);
+  }
+
+  .shard-btn svg {
+    position: relative;
+    width: 100%;
+    height: auto;
+    fill: #08070e;
+    stroke: rgba(155, 135, 217, 0.32);
+    stroke-width: 1.2;
+    transition: stroke 0.3s ease, fill 0.3s ease;
+  }
+
+  .shard-btn:hover svg,
+  .shard-btn:focus-visible svg {
+    fill: #100d1c;
+    stroke: var(--accent-rose);
+  }
+
+  .pop {
+    position: absolute;
+    z-index: 1;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 0.9rem;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    text-shadow: 0 0 12px rgba(6, 5, 10, 0.95);
+    white-space: nowrap;
+    transition: color 0.3s ease;
+    pointer-events: none;
+  }
+
+  .shard-btn:hover .pop,
+  .shard-btn:focus-visible .pop { color: var(--ink); }
+</style>
+
+<script>
+  // Runs once per page and drives every shard button on it.
+  const polys = Array.from(document.querySelectorAll('.shard-btn-poly'));
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (polys.length && !reduced) {
+    const N = 10;
+    const CX = 60, CY = 23, RX = 54, RY = 20;
+
+    const rate = () => 0.03 + Math.random() * 0.05;
+
+    function target() {
+      return Array.from({ length: N }, (_, i) => {
+        const a = (i / N) * Math.PI * 2;
+        const jag = 0.42 + Math.random() * 0.58;
+        return [CX + Math.cos(a) * RX * jag, CY + Math.sin(a) * RY * jag];
+      });
+    }
+
+    // Each button morphs independently.
+    const states = polys.map((poly) => ({
+      poly,
+      current: target(),
+      goal: target(),
+      rates: Array.from({ length: N }, rate),
+    }));
+
+    function step() {
+      for (const st of states) {
+        let settled = true;
+
+        for (let i = 0; i < N; i++) {
+          for (let k = 0; k < 2; k++) {
+            const diff = st.goal[i][k] - st.current[i][k];
+            if (Math.abs(diff) > 0.15) settled = false;
+            st.current[i][k] += diff * st.rates[i];
+          }
+        }
+
+        st.poly.setAttribute(
+          'points',
+          st.current.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' ')
+        );
+
+        if (settled) {
+          st.goal = target();
+          st.rates = st.rates.map(rate);
+        }
+      }
+
+      requestAnimationFrame(step);
+    }
+
+    step();
+  }
+</script>

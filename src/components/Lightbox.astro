@@ -1,0 +1,175 @@
+---
+// Full-resolution image viewer. Listens for clicks on any element
+// carrying data-full, so cards don't need to know it exists.
+---
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer" hidden>
+  <button class="close" id="lb-close" aria-label="Close viewer">&times;</button>
+  <button class="nav prev" id="lb-prev" aria-label="Previous image">&#8249;</button>
+  <button class="nav next" id="lb-next" aria-label="Next image">&#8250;</button>
+
+  <figure class="stage">
+    <img id="lb-img" src="" alt="" />
+    <figcaption id="lb-caption"></figcaption>
+  </figure>
+</div>
+
+<style>
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(6, 5, 10, 0.94);
+    backdrop-filter: blur(4px);
+    display: block;
+    padding: clamp(1rem, 4vw, 3rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .lightbox[hidden] { display: none; }
+
+  .stage {
+    margin: 0;
+    width: min(100%, 1200px);
+    min-height: 100%;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding-block: clamp(1rem, 4vw, 3rem);
+  }
+
+  #lb-img {
+    max-width: 100%;
+    max-height: calc(100vh - 8rem);
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border: 1px solid var(--line);
+  }
+
+  #lb-caption {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1.15rem;
+    color: var(--ink-dim);
+    text-align: center;
+  }
+
+  .close, .nav {
+    position: fixed;
+    background: none;
+    border: 1px solid var(--line-soft);
+    color: var(--ink);
+    cursor: pointer;
+    font-family: var(--font-body);
+    line-height: 1;
+    transition: border-color 0.2s ease, color 0.2s ease;
+  }
+
+  .close:hover, .nav:hover { border-color: var(--accent); color: var(--accent); }
+
+  .close {
+    top: clamp(1rem, 3vw, 2rem);
+    right: clamp(1rem, 3vw, 2rem);
+    width: 44px;
+    height: 44px;
+    font-size: 1.6rem;
+  }
+
+  .nav {
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 64px;
+    font-size: 2rem;
+  }
+
+  .prev { left: clamp(0.5rem, 2vw, 1.5rem); }
+  .next { right: clamp(0.5rem, 2vw, 1.5rem); }
+
+  @media (max-width: 600px) {
+    .nav { width: 38px; height: 52px; font-size: 1.5rem; }
+    .lightbox { padding-inline: 0.75rem; }
+    .stage { width: 100%; }
+    #lb-img { max-height: calc(100vh - 6rem); }
+  }
+</style>
+
+<script>
+  const box = document.getElementById('lightbox');
+  const img = document.getElementById('lb-img') as HTMLImageElement | null;
+  const caption = document.getElementById('lb-caption');
+  const closeBtn = document.getElementById('lb-close');
+  const prevBtn = document.getElementById('lb-prev');
+  const nextBtn = document.getElementById('lb-next');
+
+  if (box && img && caption) {
+    // Every clickable card on the page, in document order.
+    const triggers = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-full]')
+    );
+    let index = 0;
+    let lastFocused: HTMLElement | null = null;
+
+    function show(i: number) {
+      if (!img || !caption) return;
+      const t = triggers[i];
+      if (!t) return;
+      index = i;
+      img.src = t.dataset.full || '';
+      img.alt = t.dataset.alt || '';
+      caption.textContent = t.dataset.title || '';
+    }
+
+    function open(i: number) {
+      if (!box) return;
+      lastFocused = document.activeElement as HTMLElement;
+      show(i);
+      box.hidden = false;
+      document.body.style.overflow = 'hidden';
+      closeBtn?.focus();
+    }
+
+    function close() {
+      if (!box) return;
+      box.hidden = true;
+      document.body.style.overflow = '';
+      if (img) img.src = '';
+      lastFocused?.focus();
+    }
+
+    function step(delta: number) {
+      if (triggers.length === 0) return;
+      show((index + delta + triggers.length) % triggers.length);
+    }
+
+    triggers.forEach((t, i) => {
+      t.addEventListener('click', () => open(i));
+    });
+
+    closeBtn?.addEventListener('click', close);
+    prevBtn?.addEventListener('click', () => step(-1));
+    nextBtn?.addEventListener('click', () => step(1));
+
+    // Clicking the dark area closes; clicking the image itself doesn't.
+    box.addEventListener('click', (e) => {
+      if (e.target === box) close();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (box.hidden) return;
+      if (e.key === 'Escape') close();
+      if (e.key === 'ArrowLeft') step(-1);
+      if (e.key === 'ArrowRight') step(1);
+    });
+
+    // Hide nav arrows when there's only one image.
+    if (triggers.length < 2) {
+      prevBtn?.setAttribute('hidden', '');
+      nextBtn?.setAttribute('hidden', '');
+    }
+  }
+</script>

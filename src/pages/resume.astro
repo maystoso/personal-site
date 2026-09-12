@@ -1,0 +1,157 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ShardButton from '../components/ShardButton.astro';
+import {
+  codeProjects,
+  experience,
+  education,
+  skillGroups,
+  spokenLanguages,
+  resumeFileHref,
+} from '../data/resume';
+---
+<Layout title="Resume — Myka Escaran" hideHeader>
+  <div class="wrap masthead">
+    <p class="eyebrow">Projects, experience &amp; education</p>
+    <h1>Resume</h1>
+    <div class="dl">
+      <ShardButton href={resumeFileHref} label="Download PDF" download width={170} />
+    </div>
+  </div>
+
+  <div class="wrap-wide page-body resume-grid">
+    <!-- LEFT COLUMN -->
+    <div class="main-col">
+      <section class="block">
+        <h2 class="section-heading">Projects</h2>
+        <ul class="entries">
+          {codeProjects.map((project) => (
+            <li>
+              <div class="entry-head">
+                <h3>{project.title}</h3>
+                <p class="period">{project.period}</p>
+              </div>
+              <p class="stack">{project.stack}</p>
+              <p class="job-summary">{project.summary}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section class="block">
+        <h2 class="section-heading">Work experience</h2>
+        <ul class="entries">
+          {experience.map((job) => (
+            <li>
+              <div class="entry-head">
+                <h3>{job.role} · {job.org}</h3>
+                <p class="period">{job.period}</p>
+              </div>
+              <p class="job-summary">{job.summary}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <aside class="side">
+      <div>
+        <p class="eyebrow">Education</p>
+        <ul class="plain-list">
+          {education.map((ed) => (
+            <li>
+              <h3>{ed.degree}</h3>
+              <p class="job-summary">{ed.org} · {ed.period}</p>
+              {ed.detail && <p class="detail">{ed.detail}</p>}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div>
+        <p class="eyebrow">Skills</p>
+        {skillGroups.map((group) => (
+          <div class="skill-group">
+            <p class="skill-label">{group.label}</p>
+            <p class="skill-items">{group.items.join(' · ')}</p>
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <p class="eyebrow">Languages</p>
+        <p class="skill-items lang">{spokenLanguages.join(' · ')}</p>
+      </div>
+    </aside>
+  </div>
+</Layout>
+
+<style>
+  .dl { margin-top: 2.2rem; }
+
+  .resume-grid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: clamp(2rem, 6vw, 5rem);
+    align-items: start;
+  }
+
+  .block + .block { margin-top: clamp(3rem, 6vw, 4.5rem); }
+
+  .entries { list-style: none; margin: 0; padding: 0; }
+
+  .entries li {
+    padding-block: 1.5rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .entry-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+  }
+
+  .entry-head h3 {
+    font-size: 1.15rem;
+    font-style: italic;
+  }
+
+  .stack {
+    font-size: 0.85rem;
+    color: var(--accent);
+    margin-block: 0.2rem 0.5rem;
+  }
+
+  .entries .job-summary { margin-top: 0.4rem; }
+
+  .side {
+    display: flex;
+    flex-direction: column;
+    gap: 2.4rem;
+    position: sticky;
+    top: 110px;
+  }
+
+  .plain-list { list-style: none; margin: 0.7rem 0 0; padding: 0; }
+  .plain-list li { margin-bottom: 1.3rem; }
+  .plain-list h3 { font-size: 1.1rem; font-style: italic; margin-bottom: 0.3rem; }
+
+  .detail {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 0.4rem;
+    max-width: 48ch;
+  }
+
+  .skill-group { margin-top: 0.9rem; }
+  .skill-label { font-size: 0.85rem; color: var(--ink); margin-bottom: 0.2rem; }
+  .skill-items { font-size: 0.88rem; color: var(--ink-dim); }
+  .lang { margin-top: 0.7rem; }
+
+  @media (max-width: 860px) {
+    .resume-grid { grid-template-columns: 1fr; }
+    .side { position: static; }
+  }
+</style>

@@ -1,0 +1,161 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+<Layout title="About — Myka Escaran" hideHeader>
+  <div class="wrap masthead">
+    <p class="eyebrow">About</p>
+    <h1>Myka Escaran</h1>
+  </div>
+
+  <div class="wrap page-body">
+    <div class="about-layout">
+      <div class="about-copy">
+        <div class="prose">
+          <p>
+            I'm an Arts and Entertainment Technologies student at UT Austin 
+            (formerly a Computer Science student), drawn to bringing creativity
+            to life by the very tools that convenience us every day!
+          </p>
+          <p>
+            I'm a programmer and 2D + UI/UX Designer first and foremost, but I'm 
+            currently learning animation, 3D modeling, sound design, light design. 
+            I strive to create an environment that encompasses human imagination
+            in ways that haven't been explored before!
+          </p>
+        </div>
+
+        <div class="portrait-grid" aria-label="Project snapshots">
+          <div class="snapshot-frame">
+            <img src="/images/portrait.png" alt="Hand-tracking visual effects project snapshot" />
+          </div>
+          <div class="snapshot-frame">
+            <img src="/images/portrait2.png" alt="Hand-tracking visual effects project snapshot" />
+          </div>
+        </div>
+      </div>
+
+      <div class="about-visuals">
+        <div class="portrait-frame">
+          <img src="/images/mainportrait.png" alt="Portrait of Myka Escaran" />
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .about-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(250px, 360px);
+    align-items: start;
+    gap: clamp(2.5rem, 8vw, 7rem);
+    min-width: 0;
+  }
+
+  .prose p {
+    max-width: 62ch;
+    color: var(--ink-dim);
+    font-size: 1.05rem;
+    margin-bottom: 1.4rem;
+  }
+
+  .portrait-frame {
+    position: relative;
+    aspect-ratio: 4 / 5;
+    width: 100%;
+    max-width: 360px;
+    border: 1px solid var(--line-soft);
+    padding: 0.55rem;
+    background: rgba(14, 12, 26, 0.55);
+    overflow: hidden;
+  }
+
+  .about-visuals {
+    min-width: 0;
+  }
+
+  .about-copy {
+    min-width: 0;
+  }
+
+  .portrait-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 35%;
+    filter: saturate(0.82) contrast(1.04);
+  }
+
+  .portrait-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+  }
+
+  .snapshot-frame {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--line-soft);
+    background: var(--bg-raised);
+  }
+
+  .snapshot-frame img {
+    width: 100%;
+    height: auto;
+    display: block;
+    filter: saturate(0.88) contrast(1.03);
+  }
+
+  .portrait-frame::before,
+  .portrait-frame::after {
+    content: '';
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--accent);
+    opacity: 0.85;
+    pointer-events: none;
+  }
+
+  .portrait-frame::before {
+    top: -1px;
+    left: -1px;
+    border-right: none;
+    border-bottom: none;
+  }
+
+  .portrait-frame::after {
+    right: -1px;
+    bottom: -1px;
+    border-top: none;
+    border-left: none;
+  }
+
+  @media (max-width: 700px) {
+    .about-layout {
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+    }
+
+    .portrait-frame {
+      max-width: 320px;
+      justify-self: center;
+    }
+
+    .portrait-grid {
+      width: min(100%, 320px);
+      margin-inline: auto;
+    }
+
+    .prose p {
+      font-size: 1rem;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .portrait-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
