@@ -2,7 +2,7 @@
 import '../styles/global.css';
 import Header from '../components/Header.astro';
 import Cosmos from '../components/Cosmos.astro';
-import BackShard from '../components/BackShard.astro';
+import Backshard from '../components/Backshard.astro';
 
 interface Props {
   title?: string;
@@ -48,7 +48,7 @@ const {
           <p>© {new Date().getFullYear()} Myka Escaran</p>
         </footer>
       )}
-      {!isHome && <BackShard />}
+      {!isHome && <Backshard />}
     </div>
   </body>
 </html>
