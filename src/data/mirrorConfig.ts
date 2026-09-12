@@ -24,11 +24,11 @@ export const model = {
 
   // Degrees. 90 on Y turns the mirror from edge-on to facing you.
   rotX: 0,
-  rotY: 90,
+  rotY: 0,
   rotZ: 0,
 
   // How much of the view the mirror fills. Bigger = larger.
-  fit: 6,
+  fit: 4.9,
 
   // true = the whole model renders flat black, a cut-out against the glow.
   silhouette: false,
@@ -47,7 +47,7 @@ export const glass = {
 // Flat light falling on everything, regardless of the torch. Even a
 // little of this keeps the shards faintly visible in the dark, so set
 // it to 0 if you want them to depend entirely on their own glow.
-export const ambient = 0.2;
+export const ambient = 0.1;
 
 // The cursor flashlight.
 export const torch = {
